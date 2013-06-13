@@ -1,2 +1,4 @@
 node_modules/
 subway_data.json
+subway_data.xml
+.DS_Store
