@@ -1,30 +1,12 @@
-var request = require('request');
-var xml2js = require('xml2js');
-var util = require('util');
+var osmapi = require('./osmapi');
 
-var OSM_BASE_PATH = "http://overpass.osm.rambler.ru/cgi/interpreter?data=";
+var queryArg = process.argv[2] || '"network"="NYC Subway"';
 
-function status(arg1, arg2, etc) {
-  process.stderr.write(Array.prototype.join.call(arguments, ' '));
-}
-
-function doApiGet(query, cb) {
-  var queryUrl = OSM_BASE_PATH+encodeURIComponent(query);
-  status('Getting network data...', queryUrl, "\n");
-  request.get(queryUrl, function(error, response, body) {
-    if (!error && response.statusCode == 200) {
-      process.stdout.write(body, cb);
-    } else {
-      cb(error || response.statusCode);
-    }
-  });  
-}
-
-doApiGet('(relation["network"="NYC Subway"]);(._;>);out body;', function(err) {
+osmapi.doApiGet('(relation['+queryArg+']);(._;>);out body;', function(err) {
   if (! err) {
-    status("...done");
+    osmapi.status("...done.\n");
   } else {
-    status("Error:", err);
+    osmapi.status("Error:", err);
     process.exit(1);
   }
 });

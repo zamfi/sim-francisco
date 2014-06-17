@@ -1,10 +1,11 @@
 {
   "name": "subwaysim",
   "version": "0.0.1",
-  "description": "Pull NYC Subway data from OSM.",
+  "description": "Pull Subway data from OSM.",
   "dependencies": {
     "request": "~2.21.0",
-    "xml2js": "~0.2.7"
+    "xml2js": "~0.2.7",
+    "flatiron": "^0.3.11"
   },
   "repository": "",
   "author": "J.D. Zamfirescu <zamfire@gmail.com>",

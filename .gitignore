@@ -1,4 +1,8 @@
+.DS_Store
 node_modules/
 subway_data.json
 subway_data.xml
-.DS_Store
+coastline_data.json
+coastline_data.xml
+station_data.json
+station_data.xml
