@@ -5,11 +5,10 @@ NETWORK=BART
 RQ=
 ifeq ($(NETWORK),BART)
 	RQ="operator"="BART"
-	STATIONS='http://api.bart.gov/api/stn.aspx?cmd=stns&key=MW9S-E7SL-26DU-VV8V' -o station_data.xml
 endif
 # Other RQ's: "operator"="BART"
 
-all: subway_data.json coastline_data.json station_data.json 
+all: subway_data.json coastline_data.json system_api_data.json 
 	
 node_modules: package.json
 	npm install; touch node_modules
@@ -26,14 +25,14 @@ coastline_data.xml: pull-coastline-data.js osmapi.js subway_data.json node_modul
 coastline_data.json: coastline_data.xml process-coastline-data.js node_modules
 	node process-coastline-data.js > coastline_data.json
 
-station_data.xml:
-	curl $(STATIONS)
+system_api_data_xml.json: pull-system-api-data.js node_modules
+	node pull-system-api-data.js '$(NETWORK)' > system_api_data_xml.json
 
-station_data.json: station_data.xml process-station-data.js subway_data.json node_modules
-	node process-station-data.js > station_data.json
+system_api_data.json: system_api_data_xml.json process-system-api-data.js subway_data.json node_modules
+	node process-system-api-data.js > system_api_data.json
 
 clean:
-	rm -rf {subway,coastline,station}_data.{xml,json}
+	rm -rf {subway,coastline,system_api}_data{,_xml}.{xml,json}
 	
 distclean: clean
 	rm -rf node_modules

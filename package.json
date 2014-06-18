@@ -5,9 +5,14 @@
   "dependencies": {
     "request": "~2.21.0",
     "xml2js": "~0.2.7",
-    "flatiron": "^0.3.11"
+    "express": "^4.4.3",
+    "ejs": "^1.0.0",
+    "q": "^1.0.1"
   },
   "repository": "",
   "author": "J.D. Zamfirescu <zamfire@gmail.com>",
-  "license": "BSD"
+  "license": "BSD",
+  "scripts": {
+    "start": "node server.js"
+  }
 }

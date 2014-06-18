@@ -2,7 +2,11 @@ var maxWidth, maxHeight;
 maxWidth = maxHeight = 600;
 
 var colorMap = {
-  'yellow': 'orange'
+  'yellow': '#ffff33',
+  'orange': '#ff9933',
+  'green': '#339933',
+  'red': '#ff0000',
+  'blue': '#0099cc'
 };
 function getColor(d, df) {
   var c = d.color || d.colour;
@@ -50,7 +54,7 @@ d3.json('subway_data.json', function(error, system) {
       .enter().append("g")
       .attr("class", "line")
       .attr("style", function(d) { 
-        console.log("line", d.name, d.stops);
+        console.log("line", d.name, getColor(d, 'unknown'), d.stops);
         return "stroke:"+getColor(d, 'gray')+";fill:none"; 
       });
     
@@ -160,28 +164,195 @@ d3.json('subway_data.json', function(error, system) {
   }
   function updateStationAbbreviations(stations) {
     system.lines.forEach(function(line) {
+      if (! line.stopAbbrToNodeRef) {        
+        line.stopAbbrToNodeRef = {};
+      }
       line.stops = line.stops.map(function(stop) {
-        return findClosestStation(stations, nodes[stop].x, nodes[stop].y);
+        var closestStation = findClosestStation(stations, nodes[stop].x, nodes[stop].y);
+        if (! line.stopAbbrToNodeRef[closestStation]) {
+          line.stopAbbrToNodeRef[closestStation] = []
+        }
+        line.stopAbbrToNodeRef[closestStation].push(stop);
+        return closestStation;
       });
     });
   }
   
+  var router = {};
   function drawStations() {
-    d3.json('station_data.json', function(err, stations) {
-      svg.selectAll('.station').data(stations)
+    d3.json('system_api_data.json', function(err, data) {
+      svg.selectAll('.station').data(data.stations)
         .enter().append("circle")
         .attr("class", "station")
         .attr("r", "3")
         .attr("stroke-width", "1")
         .attr("stroke", "#abcdef")
-        .attr("fill", "none")
+        .attr("fill", "#abcdef")
         .attr("cx", function(d) { return xScale(d.x); })
         .attr("cy", function(d) { return yScale(d.y); })
+        .on("mousedown", function(d) {
+          console.log("station click!", d.abbr);
+          if (router.endStation || ! router.startStation) {
+            router.startStation = d.abbr;
+            delete router.endStation;
+          } else {
+            router.endStation = d.abbr;
+            var route = getRoute(router.startStation, router.endStation);
+            console.log("routing!", router.startStation, router.endStation, route);
+            svg.selectAll('.route').data([]).exit().remove();
+            if (route) {
+              svg.selectAll('.route').data([{from: router.startStation, to: router.endStation, route: route}])
+                .enter().append("path")
+                .attr("class", "route")
+                .attr("stroke-width", "4")
+                .attr("stroke", "black")
+                .attr("fill", "none")
+                .attr("d", function(d) {
+                  return "M "+d.route.map(function(nodeRef) {
+                    return xScale(nodes[nodeRef].x)+" "+yScale(nodes[nodeRef].y);
+                  }).join(" L ");
+                });
+              }
+          }
+        })
         .on("mouseover", function(d) {
           console.log(d);
         });
-      updateStationAbbreviations(stations);
-      console.log(system.lines);
+      updateStationAbbreviations(data.stations);
+      // console.log(system.lines);
+      drawTrains();
+    });
+  }
+  function findNodePath(line, startNodeRef, endNodeRef) {
+    // console.log("finding node path from", startNodeRef, "to", endNodeRef);
+    function findNodePath_helper(pathSoFar, startNodeRef, endNodeRef) {
+      // console.log("helper -- pathSoFar", pathSoFar);
+      var path;
+      if (! line.pathNodesByRef[startNodeRef]) { return; }
+      line.pathNodesByRef[startNodeRef].adj.forEach(function(nodeRef) {
+        // console.log("nodeRef", nodeRef);
+        if (path) {
+          return;
+        }
+        if (nodeRef == endNodeRef) {
+          path = pathSoFar.concat([nodeRef]);
+          return;
+        }
+        if (pathSoFar.indexOf(nodeRef) != -1) {
+          return;
+        };
+        var testPath = findNodePath_helper(pathSoFar.concat([startNodeRef]), nodeRef, endNodeRef);
+        if (testPath) {
+          path = testPath;
+          return;
+        }
+      });
+      return path;
+    }
+    try {
+      return findNodePath_helper([], startNodeRef, endNodeRef);      
+    } catch (e) {
+      console.warn("threw an error in findNodePath_helper", e);
+    }
+  }
+  function getLine(from, to, color) {
+    console.log("getting line", from, to, color);
+    var likelyLine;
+    var startNodeRef, endNodeRef;
+    system.lines.filter(function(line) { return color ? getColor(line) == color : true; }).forEach(function(line) {
+      if (likelyLine) { return; }
+      var fromIndex = line.stops.indexOf(from);
+      var toIndex = line.stops.indexOf(to);
+      if (fromIndex >= 0 && toIndex >= 0 && fromIndex < toIndex) {
+        likelyLine = {
+          line: line,
+          startNodeRef: line.stopAbbrToNodeRef[from][0],
+          endNodeRef: line.stopAbbrToNodeRef[to][0]
+        };
+      }
+    });
+    return likelyLine;
+  }
+  function getRoute(from, to, color) {
+    var lineData = getLine(from, to, color);
+    if (! lineData) { return; }
+    return findNodePath(lineData.line, lineData.startNodeRef, lineData.endNodeRef);
+  }
+  function nodeDistance(aRef, bRef) {
+    return Math.sqrt(Math.pow(nodes[aRef].x-nodes[bRef].x, 2) + Math.pow(nodes[aRef].y-nodes[bRef].y, 2));
+  }
+  function slope(aRef, bRef) {
+    return (nodes[bRef].y - nodes[aRef.y]) / (nodes[bRef].x - nodes[bRef].y);
+  }
+  function interpolatePathDistance(route, distance) {
+    var distanceSoFar = 0;
+    var lastNodeRef = route[0];
+    for (var i = 1; i < route.length; ++i) {
+      var nodeRef = route[i];
+      var d = nodeDistance(lastNodeRef, nodeRef);
+      if (distance < distanceSoFar+d) {
+        var ratio = (distance-distanceSoFar) / d;
+        return { x: nodes[nodeRef].x + ratio * (nodes[nodeRef].x - nodes[lastNodeRef].x),
+                 y: nodes[nodeRef].y + ratio * (nodes[nodeRef].y - nodes[lastNodeRef].y),
+                 unitVector: {
+                   x: (nodes[nodeRef].x - nodes[lastNodeRef].x) / d,
+                   y: (nodes[nodeRef].y - nodes[lastNodeRef].y) / d
+                 }
+               };
+      }
+      distanceSoFar += d;
+      lastNodeRef = nodeRef;
+    }
+    var lastNodeRef = route[route.length-2];
+    return { x: nodes[nodeRef].x,
+             y: nodes[nodeRef].y,
+             unitVector: {
+               x: (nodes[nodeRef].x - nodes[lastNodeRef].x) / d,
+               y: (nodes[nodeRef].y - nodes[lastNodeRef].y) / d
+             }
+           };
+  }
+  function drawTrains() {
+    d3.json('bart', function(err, data) {
+      var trainData = [];
+      data.stations.forEach(function(station) {
+        station.etd.forEach(function(etd) {
+          etd.departures.filter(function(a) { return a.minutes <= 5; }).forEach(function(departure) {
+            var line = getLine(station.abbr, etd.destination, departure.color);
+            console.log("Got line", line);
+            if (! line) { return; }
+            var previousStation = line.line.stops[Math.max(line.line.stops.indexOf(station.abbr)-1, 0)];
+            var route = getRoute(station.abbr, previousStation/*, departure.color*/);
+            if (! route) { return; }
+            var position = interpolatePathDistance(route, departure.minutes/60 * 50 /*m/h*/);
+            trainData.push({color: departure.color, position: position, destination: etd.destination, arrivingAt: station.abbr, inMinutes: departure.minutes});
+          });
+        });
+      });
+      console.log("setting train data", trainData);
+      var trains = svg.selectAll(".train").data(trainData)
+      var group = trains.enter()
+        .append("g")
+        .attr("class", "train");
+      group.append("circle")
+        .attr("cx", function(d) { return xScale(d.position.x) || 0; })
+        .attr("cy", function(d) { return yScale(d.position.y) || 0; })
+        .attr("r", "4")
+        .attr("fill", function(d) { return d.color; })
+        .attr("stroke", "black")
+        .attr("strokeWeight", "2")
+        .on("mouseover", function(d) {
+          console.log("train bound for", d.destination, "arriving at", d.arrivingAt, "in", d.inMinutes, "minutes");
+        });
+      group.append("line")
+        .attr("x1", function(d) { return xScale(d.position.x) || 0; })
+        .attr("y1", function(d) { return yScale(d.position.y) || 0; })
+        .attr("x2", function(d) { return xScale(d.position.x - d.position.unitVector.x)})
+        .attr("y2", function(d) { return yScale(d.position.y - d.position.unitVector.y)})
+        .attr("strokeWeight", "2")
+        .attr("stroke", "black");
+      trains.enter()
+      trains.exit().remove()
     });
   }
   // drawWays();
