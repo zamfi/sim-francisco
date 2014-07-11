@@ -7,7 +7,7 @@ var xml2js = require('xml2js');
 var osmapi = require('./osmapi');
 
 function getAllLines(cb) {
-  var xml = fs.readFileSync('subway_data.xml', 'utf-8');
+  var xml = fs.readFileSync('data/subway_data.xml', 'utf-8');
   xml2js.parseString(xml, function(err, data) {
     if (err) { return cb(err); }
 

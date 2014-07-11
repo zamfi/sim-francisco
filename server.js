@@ -8,8 +8,12 @@ var app = express();
 app.set('views', __dirname);
 app.engine('html', require('ejs').renderFile);
 
+app.use(express.static(__dirname+'/client'));
 app.get('/', function(req, res) {
   res.render('index.html');
+});
+app.get('/test', function(req, res) {
+  res.render('test.html');
 });
 
 var lastData;
@@ -33,7 +37,7 @@ function pullBartData() {
       //       },
       //    ]},
       //  ]
-      console.log("DATA!", JSON.stringify(data, false, 2));
+      // console.log("DATA!", JSON.stringify(data, false, 2));
       var compiledData = {
         stations: data.root.station.map(function(station) {
           return {
@@ -67,7 +71,7 @@ app.get('/bart', function(req, res) {
     lastData = pullBartData();
   }
   Q.when(lastData, function(value) {
-    console.log("VALUE!");
+    console.log("VALUE!", JSON.stringify(value.data, false, 2));
     res.writeHeader(200, {'Content-Type': "application/json"});
     res.end(JSON.stringify(value.data));    
   }, function(error) {

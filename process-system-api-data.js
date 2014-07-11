@@ -3,11 +3,11 @@ var Q = require('q');
 var xml2js = require('xml2js');
 var osmapi = require('./osmapi');
 
-var subway = JSON.parse(fs.readFileSync('subway_data.json', 'utf-8'));
+var subway = JSON.parse(fs.readFileSync('data/subway_data.json', 'utf-8'));
 
 var geo = osmapi.geoUtils(subway.extrema.minLat, subway.extrema.minLon, subway.extrema.maxLat, subway.extrema.maxLon);
 
-var xmlData = JSON.parse(fs.readFileSync('system_api_data_xml.json', 'utf-8'));
+var xmlData = JSON.parse(fs.readFileSync('data/system_api_data_xml.json', 'utf-8'));
 
 function getAllStations() {
   var deferred = Q.defer();

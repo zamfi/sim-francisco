@@ -7,7 +7,9 @@
     "xml2js": "~0.2.7",
     "express": "^4.4.3",
     "ejs": "^1.0.0",
-    "q": "^1.0.1"
+    "q": "^1.0.1",
+    "osmtogeojson": "^2.0.5",
+    "topojson": "^1.6.14"
   },
   "repository": "",
   "author": "J.D. Zamfirescu <zamfire@gmail.com>",

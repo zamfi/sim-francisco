@@ -178,7 +178,8 @@ d3.json('subway_data.json', function(error, system) {
     });
   }
   
-  var router = {};
+  // var router = {};
+  var etdData;
   function drawStations() {
     d3.json('system_api_data.json', function(err, data) {
       svg.selectAll('.station').data(data.stations)
@@ -192,35 +193,40 @@ d3.json('subway_data.json', function(error, system) {
         .attr("cy", function(d) { return yScale(d.y); })
         .on("mousedown", function(d) {
           console.log("station click!", d.abbr);
-          if (router.endStation || ! router.startStation) {
-            router.startStation = d.abbr;
-            delete router.endStation;
-          } else {
-            router.endStation = d.abbr;
-            var route = getRoute(router.startStation, router.endStation);
-            console.log("routing!", router.startStation, router.endStation, route);
-            svg.selectAll('.route').data([]).exit().remove();
-            if (route) {
-              svg.selectAll('.route').data([{from: router.startStation, to: router.endStation, route: route}])
-                .enter().append("path")
-                .attr("class", "route")
-                .attr("stroke-width", "4")
-                .attr("stroke", "black")
-                .attr("fill", "none")
-                .attr("d", function(d) {
-                  return "M "+d.route.map(function(nodeRef) {
-                    return xScale(nodes[nodeRef].x)+" "+yScale(nodes[nodeRef].y);
-                  }).join(" L ");
-                });
-              }
+          if (etdData) {
+            alert(JSON.stringify(etdData.filter(function(station) {
+              return station.abbr == d.abbr;
+            })[0], false, 2));
           }
+          // if (router.endStation || ! router.startStation) {
+          //   router.startStation = d.abbr;
+          //   delete router.endStation;
+          // } else {
+          //   router.endStation = d.abbr;
+          //   var route = getRoute(router.startStation, router.endStation);
+          //   console.log("routing!", router.startStation, router.endStation, route);
+          //   svg.selectAll('.route').data([]).exit().remove();
+          //   if (route) {
+          //     svg.selectAll('.route').data([{from: router.startStation, to: router.endStation, route: route}])
+          //       .enter().append("path")
+          //       .attr("class", "route")
+          //       .attr("stroke-width", "4")
+          //       .attr("stroke", "black")
+          //       .attr("fill", "none")
+          //       .attr("d", function(d) {
+          //         return "M "+d.route.map(function(nodeRef) {
+          //           return xScale(nodes[nodeRef].x)+" "+yScale(nodes[nodeRef].y);
+          //         }).join(" L ");
+          //       });
+          //     }
+          // }
         })
         .on("mouseover", function(d) {
           console.log(d);
         });
       updateStationAbbreviations(data.stations);
       // console.log(system.lines);
-      drawTrains();
+      pullTrainData();
     });
   }
   function findNodePath(line, startNodeRef, endNodeRef) {
@@ -312,48 +318,54 @@ d3.json('subway_data.json', function(error, system) {
              }
            };
   }
-  function drawTrains() {
+  function pullTrainData() {
     d3.json('bart', function(err, data) {
-      var trainData = [];
-      data.stations.forEach(function(station) {
-        station.etd.forEach(function(etd) {
-          etd.departures.filter(function(a) { return a.minutes <= 5; }).forEach(function(departure) {
-            var line = getLine(station.abbr, etd.destination, departure.color);
-            console.log("Got line", line);
-            if (! line) { return; }
-            var previousStation = line.line.stops[Math.max(line.line.stops.indexOf(station.abbr)-1, 0)];
-            var route = getRoute(station.abbr, previousStation/*, departure.color*/);
-            if (! route) { return; }
-            var position = interpolatePathDistance(route, departure.minutes/60 * 50 /*m/h*/);
-            trainData.push({color: departure.color, position: position, destination: etd.destination, arrivingAt: station.abbr, inMinutes: departure.minutes});
-          });
+      if (data && data.stations) {
+        etdData = data.stations;
+      }
+      drawTrains(data.stations);
+    });
+  }
+  function drawTrains(stationEtdData) {
+    var trainData = [];
+    stationEtdData.forEach(function(station) {
+      station.etd.forEach(function(etd) {
+        etd.departures.filter(function(a) { return a.minutes <= 8; }).forEach(function(departure) {
+          var line = getLine(station.abbr, etd.destination, departure.color);
+          console.log("Got line", line);
+          if (! line) { return; }
+          var previousStation = line.line.stops[Math.max(line.line.stops.indexOf(station.abbr)-1, 0)];
+          var route = getRoute(station.abbr, previousStation/*, departure.color*/);
+          if (! route) { return; }
+          var position = interpolatePathDistance(route, departure.minutes/60 * 50 /*m/h*/);
+          trainData.push({color: departure.color, position: position, destination: etd.destination, arrivingAt: station.abbr, inMinutes: departure.minutes});
         });
       });
-      console.log("setting train data", trainData);
-      var trains = svg.selectAll(".train").data(trainData)
-      var group = trains.enter()
-        .append("g")
-        .attr("class", "train");
-      group.append("circle")
-        .attr("cx", function(d) { return xScale(d.position.x) || 0; })
-        .attr("cy", function(d) { return yScale(d.position.y) || 0; })
-        .attr("r", "4")
-        .attr("fill", function(d) { return d.color; })
-        .attr("stroke", "black")
-        .attr("strokeWeight", "2")
-        .on("mouseover", function(d) {
-          console.log("train bound for", d.destination, "arriving at", d.arrivingAt, "in", d.inMinutes, "minutes");
-        });
-      group.append("line")
-        .attr("x1", function(d) { return xScale(d.position.x) || 0; })
-        .attr("y1", function(d) { return yScale(d.position.y) || 0; })
-        .attr("x2", function(d) { return xScale(d.position.x - d.position.unitVector.x)})
-        .attr("y2", function(d) { return yScale(d.position.y - d.position.unitVector.y)})
-        .attr("strokeWeight", "2")
-        .attr("stroke", "black");
-      trains.enter()
-      trains.exit().remove()
     });
+    console.log("setting train data", trainData);
+    var trains = svg.selectAll(".train").data(trainData)
+    var group = trains.enter()
+      .append("g")
+      .attr("class", "train");
+    group.append("circle")
+      .attr("cx", function(d) { return xScale(d.position.x) || 0; })
+      .attr("cy", function(d) { return yScale(d.position.y) || 0; })
+      .attr("r", "4")
+      .attr("fill", function(d) { return d.color; })
+      .attr("stroke", "black")
+      .attr("strokeWeight", "2")
+      .on("mousedown", function(d) {
+        alert("train bound for "+d.destination+" arriving at "+d.arrivingAt+" in "+d.inMinutes+" minutes");
+      });
+    group.append("line")
+      .attr("x1", function(d) { return xScale(d.position.x) || 0; })
+      .attr("y1", function(d) { return yScale(d.position.y) || 0; })
+      .attr("x2", function(d) { return xScale(d.position.x - d.position.unitVector.x)})
+      .attr("y2", function(d) { return yScale(d.position.y - d.position.unitVector.y)})
+      .attr("strokeWeight", "2")
+      .attr("stroke", "black");
+    trains.enter()
+    trains.exit().remove()
   }
   // drawWays();
   // drawAdjacenciesAsLineSegments();
