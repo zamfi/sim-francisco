@@ -5,6 +5,7 @@ Array.prototype.pushIfAbsent = function(v) { if (this.indexOf(v) < 0) { this.pus
 var fs = require('fs');
 var xml2js = require('xml2js');
 var osmapi = require('./osmapi');
+var topojson = require('topojson');
 
 function getAllLines(cb) {
   var xml = fs.readFileSync('data/subway_data.xml', 'utf-8');
@@ -36,16 +37,10 @@ function getAllLines(cb) {
     extrema.range = geo.range;
     system.extrema = extrema;
     
-    for (var k in system.nodes) {
-      var node = system.nodes[k];
-      var pos = geo.pos(node.lat, node.lon);
-      node.x = pos.x;
-      node.y = pos.y;
-    }
-    
     osmapi.status('Processing lines... ');
     data.osm.relation.filter(function(rel) { return osmapi.getTagValue(rel, 'type') == 'route'; }).forEach(function(rel) {
       var lineData = osmapi.getTagObject(rel);
+      lineData.id = rel.$.id;
 
       lineData.stops = rel.member.filter(function(m) { return m.$.type == 'node' && m.$.role == 'stop'; }).map(function(m) { return m.$.ref; });
       lineData.segments = rel.member.filter(function(m) { return m.$.type == 'way' }).map(function(m) { return m.$.ref });
@@ -80,6 +75,24 @@ function getAllLines(cb) {
       })
       lineData.nodeGraph = adjacencies;
     });
+
+    osmapi.status("making geojson...\n");
+    var geojson = {
+      type: "FeatureCollection",
+      features: system.lines.map(function(line) {
+        var feature = osmapi.multiLineStringFromAdjacencyMatrix(system.nodes, line.nodeGraph);
+        feature.properties = {};
+        feature.id = line.id
+        for (k in line) {
+          if (k in {nodeGraph: true, stops: true, segments: true}) {
+            continue;
+          }
+          feature.properties[k] = line[k];
+        }
+        return feature;
+      })
+    };
+    fs.writeFileSync('data/subway_routes.geojson', JSON.stringify(geojson));
 
     osmapi.status('...done.\n');
     cb(null, system);

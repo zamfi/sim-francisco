@@ -4,16 +4,11 @@ var xml2js = require('xml2js');
 var osmapi = require('./osmapi');
 
 var subway = JSON.parse(fs.readFileSync('data/subway_data.json', 'utf-8'));
-
-var geo = osmapi.geoUtils(subway.extrema.minLat, subway.extrema.minLon, subway.extrema.maxLat, subway.extrema.maxLon);
-
 var xmlData = JSON.parse(fs.readFileSync('data/system_api_data_xml.json', 'utf-8'));
 
 function getAllStations() {
   var deferred = Q.defer();
   xml2js.parseString(xmlData.stations, function(err, data) {
-    var geo = osmapi.geoUtils(subway.extrema.minLat, subway.extrema.minLon, subway.extrema.maxLat, subway.extrema.maxLon);
-        
     deferred.resolve(data.root.stations[0].station.map(function(station) {
       for (k in station) {
         if (station.hasOwnProperty(k)) {
@@ -23,9 +18,6 @@ function getAllStations() {
         }
         station.lat = station.gtfs_latitude;
         station.lon = station.gtfs_longitude;
-        var pos = geo.pos(station.lat, station.lon);
-        station.x = pos.x;
-        station.y = pos.y;
       }
       return station;
     }));

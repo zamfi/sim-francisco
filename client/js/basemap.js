@@ -1,7 +1,10 @@
-function drawBasemap(world, object, svg) {
-  console.log("world is", world);
+function drawBasemap(world, object, svg, projector) {
+  var timing = {};
+  // console.log("world is", world);
+  timing.start = Date.now();
   var featureCollection = topojson.feature(world, object);
-  console.log("feature collection is", featureCollection);
+  timing.feature1 = Date.now();
+  // console.log("feature collection is", featureCollection);
 
   function mergedCoastlines() {
     var coastlineSegments = object.geometries.filter(AND(isCoastline, isLineString));
@@ -43,7 +46,7 @@ function drawBasemap(world, object, svg) {
       var nextSegmentIndex = startPoints.indexOf(endPoints[index]);
       return nextSegmentIndex < 0 ? null : nextSegmentIndex;
     });
-    console.log("coastline is", coastlineSegments, startPoints, endPoints, previousSegments, nextSegments);
+    // console.log("coastline is", coastlineSegments, startPoints, endPoints, previousSegments, nextSegments);
 
     var compoundSegments = [];
     unhitSegments = coastlineSegments.slice();
@@ -97,43 +100,36 @@ function drawBasemap(world, object, svg) {
   }
 
   var coastlineGeometryCollection = mergedCoastlines();
+  timing.merged = Date.now();
   console.log("geometry collection", world, coastlineGeometryCollection);
   var coastlineFeatureCollection = topojson.feature(world, coastlineGeometryCollection);
+  timing.coastlineFeature = Date.now();
 
-  var path = d3.geo.path().projection(d3.geo.mercator()
-    .center([-122.25, 37.75])
-    .scale(75000).translate([width/2, height/2]))
-  svg.selectAll("path")
-    .data(coastlineFeatureCollection.features.concat(featureCollection.features.filter(OR(isHighway, isMajorRoad, isMinorRoad, isWater, isRiver, isPark, AND(isCoastline, NOT(isLineString)))).sort(function(a, b) {
-      return featurePriority(a) - featurePriority(b);
-    })))
-    .enter().append("path")
-      .attr("class", function(d) {
-        if (isHighway(d)) {
-          return "highway";
-        }
-        if (isMajorRoad(d)) {
-          return "major-road";
-        }
-        if (isMinorRoad(d)) {
-          return "minor-road";
-        }
-        if (isCoastline(d)) {
-          return isInverted(d) ? "coast-inverted" : "coast";
-        }
-        if (isWater(d)) {
-          return "water";
-        }
-        if (isRiver(d)) {
-          return "river";
-        }
-        if (isPark(d)) {
-          return "park";
-        }
-        return "unknown";
-      })
-      // .on("mouseover", function(d) {
-      //   console.log(d);
-      // })
-      .attr("d", path);
+  var collections = [
+    AND(isCoastline, NOT(isLineString)), isPark, isWater, isRiver, isMinorRoad, isMajorRoad, isHighway
+  ].map(function(featureFilter) {
+    return {
+      type: "FeatureCollection",
+      features: featureCollection.features.filter(featureFilter)
+    };
+  });
+  collections.unshift({type: "FeatureCollection", features: coastlineFeatureCollection.features.filter(NOT(isInverted)) });
+  collections.unshift({type: "FeatureCollection", features: coastlineFeatureCollection.features.filter(isInverted) });
+  var classNames = ["coast-inverted", "coast", "coast", "park", "water", "river", "minor-road", "major-road", "highway"];
+
+  timing.svgStart = Date.now();
+
+  classNames.forEach(function(className, index) {
+    svg.append("path")
+        .attr("class", className)
+        .datum(collections[index])
+        .attr("d", projector);
+  });
+
+  timing.svg = Date.now();
+  console.log("basemap feature1", timing.feature1 - timing.start, 
+              "merged", timing.merged - timing.feature1,
+              "coastline", timing.coastlineFeature - timing.merged,
+              "collection processing", timing.svgStart - timing.coastlineFeature,
+              "svg", timing.svg - timing.svgStart);
 }

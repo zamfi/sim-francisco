@@ -86,3 +86,54 @@ exports.getRefMap = function(osm, type) {
   });
   return out;
 }
+
+exports.multiLineStringFromAdjacencyMatrix = function(nodes, adjacencyMatrix) {
+  var edges = {};
+  function markEdge(ref1, ref2) {
+    edges[[ref1, ref2].sort().join("-")] = true;
+  }
+  function isMarked(ref1, ref2) {
+    return edges[[ref1, ref2].sort().join("-")];
+  }
+  var segments = [];
+  function stringFrom(node, nextNode) {
+    if (! node || ! nextNode || isMarked(node, nextNode)) {
+      return [];
+    }
+    markEdge(node, nextNode);
+    var subsequentNodes = adjacencyMatrix[nextNode].filter(function(n) {
+      return n !== node;
+    });
+    subsequentNodes.slice(1).forEach(function(subNode) {
+      if (! isMarked(nextNode, subNode)) {
+        segments.push(stringFrom(nextNode, subNode));
+      }
+    })
+    return [node].concat(stringFrom(nextNode, subsequentNodes[0]));
+  }
+  var startNodes = Object.keys(adjacencyMatrix).filter(function(node) {
+    return adjacencyMatrix[node].length == 1;
+  });
+  if (startNodes.length == 0) {
+    startNodes = Object.keys(adjacencyMatrix).filter(function(node) {
+      return adjacencyMatrix[node].length > 1;
+    }).slice(0, 1);
+  }
+  var segments = startNodes.map(function(node) {
+    return stringFrom(node, adjacencyMatrix[node][0]);
+  }).filter(function(segment) {
+    return segment.length > 0;
+  });
+  var lineStrings = segments.map(function(segment) {
+    return segment.map(function(nodeRef) {
+      return [Number(nodes[nodeRef].lon), Number(nodes[nodeRef].lat)];
+    });
+  });
+  return {
+    type: "Feature",
+    geometry: {
+      type: lineStrings.length > 1 ? "MultiLineString" : "LineString",
+      coordinates: lineStrings.length > 1 ? lineStrings : (lineStrings[0] || [])
+    }
+  }
+}

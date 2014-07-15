@@ -1,22 +1,86 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <style>
-    svg { border: 1px solid #ccc; }
-    path.coastline {
-      stroke: #ccc;
-      fill: none;
-    }
-    path.coastline:hover {
-      stroke: black;
-    }
-    circle.station:hover {
-      stroke: black;
-    }
-  </style>
+<meta charset="utf-8">
+<style>
+
+/* CSS goes here. */
+
+path.coast {
+  fill: white;
+}
+path.coast-inverted {
+  fill: #def;
+}
+path.highway {
+  stroke: #ddd;
+  stroke-width: 1px;
+  fill: none;
+}
+path.major-road {
+  stroke: #eee;
+  stroke-width: 0.75px;
+  fill: none;
+}
+path.minor-road {
+  stroke: #f6f6f6;
+  stroke-width: 0.5px;
+  fill: none;
+}
+path.water {
+  fill: #def;
+  stroke: none;
+}
+path.river {
+  fill: none;
+  stroke: #def;
+  stroke-width: 0.5px;
+}
+path.park {
+  fill: #dfd;
+  stroke: none;
+}
+
+path.line {
+  stroke: #f00;
+  stroke-width: 3px;
+  fill: none;
+}
+
+path.station {
+  stroke: #f00;
+  stroke-width: 3px;
+  fill: white;
+}
+
+circle.traincircle {
+  stroke-width: 1px;
+  stroke: black;
+}
+path.trainnose {
+  stroke-width: 1px;
+  stroke: black;
+}
+
+path.unknown {
+  stroke: #aaa;
+  stroke-width: 2px;
+  fill: rgba(171, 210, 239, 0.5);
+}
+svg {
+  border: 1px solid #ccc;
+/*  background: #abcdef;*/
+}
+
+</style>
 </head>
 <body>
-  <script type="text/javascript" src="lib/d3.v3.js" charset="utf-8"></script>
-  <script type="text/javascript" src="subwaysim.js" charset="utf-8"></script>  
+<script src="/lib/d3.v3.min.js"></script>
+<script src="/lib/topojson.v1.min.js"></script>
+<script src="/lib/queue.v1.min.js"></script>
+<script src="/js/topojson-utils.js"></script>
+<script src="/js/basemap.js"></script>
+<script src="/lib/svg-pan-zoom.min.js"></script>
+<script src="/js/subwaysim.js"></script>
 </body>
 </html>
