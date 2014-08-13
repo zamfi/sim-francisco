@@ -342,6 +342,7 @@ SubwaySimulator.prototype = {
         return ["M",start.join(" "),
                 "l",end.join(" ")].join(" ");
       });
+    trainGroup.exit().remove();
   },
 
   applyRealtimeData: function(realtime) {
