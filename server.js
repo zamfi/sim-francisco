@@ -35,8 +35,10 @@ var lastData;
 // });
 
 app.get('/realtime', function(req, res) {
-  if (! lastData || (lastData.isFulfilled() && (Date.now() - lastData.inspect().lastUpdate) > 60*1000)) {
+  if (! lastData || lastData.isRejected() || (lastData.isFulfilled() && (Date.now() - lastData.inspect().value.lastUpdate) > 60*1000)) {
     lastData = gtfs.getGtfsRealtimeUpdates();
+  } else {
+    console.log("request for /realtime, no pull required; last pull was", Date.now() - lastData.inspect().value.lastUpdate, "ms ago");
   }
   Q.when(lastData, function (value) {
     res.writeHeader(200, {'Content-Type': "application/json"});

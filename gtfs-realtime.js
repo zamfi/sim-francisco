@@ -11,6 +11,7 @@ function parseData(data) {
 }
 
 exports.getGtfsRealtimeUpdates = function getGtfsRealtimeUpdates() {
+  console.log("Pulling GTFS realtime data.");
   var deferred = Q.defer()
   request.get({url: 'http://api.bart.gov/gtfsrt/tripupdate.aspx', encoding: null}, function (err, response, body) {
     if (err) {
@@ -21,7 +22,7 @@ exports.getGtfsRealtimeUpdates = function getGtfsRealtimeUpdates() {
     try {
       var out = {
         data: parseData(body),
-        lastUpdate: new Date()
+        lastUpdate: Date.now()
       };
       deferred.resolve(out);
     } catch (e) {

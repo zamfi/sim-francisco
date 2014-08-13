@@ -261,11 +261,11 @@ SubwaySimulator.prototype = {
     };
   },
   
-  stopDepartureTime: function(stop) {
-    return Time.fromMinutesSinceStart(stop.departure + (stop.delay ? stop.delay.departure : 0));
+  stopDepartureTime: function(trip, stop) {
+    return Time.fromMinutesSinceStart(stop.departure + (trip.delay ? trip.delay.departure : 0));
   },
-  stopArrivalTime: function(stop) {
-    return Time.fromMinutesSinceStart(stop.arrival + (stop.delay ? stop.delay.arrival : 0));
+  stopArrivalTime: function(trip, stop) {
+    return Time.fromMinutesSinceStart(stop.arrival + (trip.delay ? trip.delay.arrival : 0));
   },
   trainPositions: function(timeObject, dayOfWeek) {
     var activeTrains = this.trips.filter(this.activeServiceFilter(dayOfWeek)).filter(function(trip) {
@@ -276,10 +276,10 @@ SubwaySimulator.prototype = {
       var nextStopIndex;
       var lastStopIndex;
       for (var i = 0; i < trip.stops.length; ++i) {
-        if (this.stopDepartureTime(trip.stops[i]) <= timeObject) {
+        if (this.stopDepartureTime(trip, trip.stops[i]) <= timeObject) {
           lastStopIndex = i;
         }
-        if (this.stopArrivalTime(trip.stops[i]) >= timeObject && nextStopIndex === undefined) {
+        if (this.stopArrivalTime(trip, trip.stops[i]) >= timeObject && nextStopIndex === undefined) {
           nextStopIndex = i;
         }
       }
@@ -290,7 +290,7 @@ SubwaySimulator.prototype = {
         between: [trip.stops[lastStopIndex].stop_id, trip.stops[nextStopIndex].stop_id],
         between_index: [lastStopIndex, nextStopIndex],
         trip: trip,
-        completion: (timeObject - this.stopDepartureTime(trip.stops[lastStopIndex])) / (this.stopArrivalTime(trip.stops[nextStopIndex]) - this.stopDepartureTime(trip.stops[lastStopIndex]))
+        completion: (timeObject - this.stopDepartureTime(trip, trip.stops[lastStopIndex])) / (this.stopArrivalTime(trip, trip.stops[nextStopIndex]) - this.stopDepartureTime(trip, trip.stops[lastStopIndex]))
       };
       var linkKey = connectionKey(out.between[0], out.between[1]);
       // console.log("getting link", this.stationLinks[trip.route_id], trip.stops, linkKey, this.stationLinks[trip.route_id][connectionKey(out.between[0], out.between[1])]);
@@ -308,18 +308,21 @@ SubwaySimulator.prototype = {
       .enter().append("g")
       .attr("class", "train")
       .on("click", function(d) {
-        alert(["train bound for", d.trip.stops[d.trip.stops.length-1].stop_id,
+        var out = [d.trip.trip_id, "train bound for", d.trip.stops[d.trip.stops.length-1].stop_id,
           "is", Math.round(d.completion*100)+"%", "of the way between", d.between[0], "and", d.between[1],
-          "\n\nLeft at", d.trip.stops[d.between_index[0]].departure, 
-          "and will arrive at", d.trip.stops[d.between_index[1]].arrival].join(" "));
+          "\n\nScheduled departure at", d.trip.stops[d.between_index[0]].departure, 
+          "and arrival at", d.trip.stops[d.between_index[1]].arrival];
+        if (d.trip.delay) {
+          out.push("\n\nDelayed by", d.trip.delay.departure.minutesSinceStart(), "minutes at", d.trip.delay.at.stop_id);
+        }
+        alert(out.join(" "));
       });
     trainEntry.append("circle")
       .attr("class", "traincircle")
       .attr("r", 5);
     trainGroup.select('.traincircle')
       .attr("fill", function(d) { 
-        var delayed = d.trip.stops[d.between_index[0]].delay || d.trip.stops[d.between_index[0]].delay;
-        return (delayed && (Date.now()/1000) % 2 == 0) ? 'white' : '#'+sim.routesById[d.trip.route_id].route_color; 
+        return '#'+sim.routesById[d.trip.route_id].route_color;
       })
       .attr("cx", function(d) {
         return projection(d.position.coordinates)[0];
@@ -330,6 +333,9 @@ SubwaySimulator.prototype = {
     trainEntry.append("path")
       .attr("class", "trainnose");
     trainGroup.select('.trainnose')
+      .attr("stroke-width", function(d) {
+        return d.trip.delay ? 2 : 1;
+      })
       .attr("d", function(d) {
         if (! d.position.nextCoordinates && ! d.position.lastCoordinates) {
           // console.log("failed to draw train nose for", d);
@@ -338,7 +344,8 @@ SubwaySimulator.prototype = {
         var start = projection(d.position.coordinates);
         var end = projection(d.position.nextCoordinates || d.position.lastCoordinates);
         var len = Math.sqrt((start[0]-end[0])*(start[0]-end[0]) + (start[1]-end[1])*(start[1]-end[1]));
-        end = [10 * (start[0]-end[0]) / len, 10 * (start[1]-end[1]) / len];
+        var desiredLength = d.trip.delay ? 15 : 10;
+        end = [desiredLength * (start[0]-end[0]) / len, desiredLength * (start[1]-end[1]) / len];
         return ["M",start.join(" "),
                 "l",end.join(" ")].join(" ");
       });
@@ -353,13 +360,15 @@ SubwaySimulator.prototype = {
         var stopSequence = update.stop_sequence;
         var arrivalDelay = update.arrival && update.arrival.delay;
         var departureDelay = update.departure && update.departure.delay;
-        var tripStop = this.tripsById[tripId].stops.filter(function(stop) {
+        var trip = this.tripsById[tripId];
+        var tripStop = trip.stops.filter(function(stop) {
           return stop.stop_sequence == stopSequence;
         })[0];
         if (arrivalDelay || departureDelay) {
-          tripStop.delay = {
+          trip.delay = {
             departure: Time.fromMinutesSinceStart((departureDelay || arrivalDelay)/60),
-            arrival: Time.fromMinutesSinceStart((arrivalDelay || departureDelay)/60)
+            arrival: Time.fromMinutesSinceStart((arrivalDelay || departureDelay)/60),
+            at: tripStop
           };
           console.log("Found delayed train!", tripId, tripStop);
         } else {
