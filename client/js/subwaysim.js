@@ -482,7 +482,8 @@ function drawSubwayData(subwayData, apiData, svg, projection, projector) {
 
   function updateTrainPositions() {
     var now = new Date();
-    var trainData = sim.trainPositions(new Time(now.getHours(), now.getMinutes() + now.getSeconds()/60 + now.getMilliseconds()/60000), ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'][now.getDay()]);
+    var hour = now.getHours();
+    var trainData = sim.trainPositions(new Time(hour < 3 ? 24+hour : hour, now.getMinutes() + now.getSeconds()/60 + now.getMilliseconds()/60000), ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'][now.getDay()]);
     // console.log("train positions!", trainData);
     sim.drawTrains(trainData, trainGroup, projection, projector);    
     // console.log("updated train positions in ", Date.now() - now, "ms");
