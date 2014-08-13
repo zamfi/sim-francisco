@@ -72,15 +72,24 @@ svg {
 /*  background: #abcdef;*/
 }
 
+path.stationLink {
+  stroke: blue;
+  fill: none;
+}
+path.stationLink:hover {
+  stroke: orange;
+}
+
 </style>
 </head>
 <body>
 <script src="/lib/d3.v3.min.js"></script>
 <script src="/lib/topojson.v1.min.js"></script>
 <script src="/lib/queue.v1.min.js"></script>
+<script src="/js/time.js"></script>
 <script src="/js/topojson-utils.js"></script>
 <script src="/js/basemap.js"></script>
-<script src="/lib/svg-pan-zoom.min.js"></script>
+<!-- <script src="/lib/svg-pan-zoom.min.js"></script> -->
 <script src="/js/subwaysim.js"></script>
 </body>
 </html>
