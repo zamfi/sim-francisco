@@ -25,23 +25,23 @@ var scale = agencyInfo[agency].scale;
 //     .attr("width", width)
 //     .attr("height", height).append("g").attr("class", "viewport");
 //
-var svg = d3.select("body").append("svg")
-    .attr("id", "map")
-    .attr("width", width)
-    .attr("height", height);
-var svgBase = svg.append("g").attr("class", "viewport");
-var svgOverlay = svg.append("g");
+// var svg = d3.select("body").append("svg")
+//     .attr("id", "map")
+//     .attr("width", width)
+//     .attr("height", height);
+// var svgBase = svg.append("g").attr("class", "viewport");
+// var svgOverlay = svg.append("g");
 
-var projection = d3.geo.mercator()
-  .center(lonlat).scale(scale).translate([width/2, height/2])
-var projector = d3.geo.path().projection(projection)
+// var projection = d3.geo.mercator()
+//   .center(lonlat).scale(scale).translate([width/2, height/2])
+// var projector = d3.geo.path().projection(projection)
 
 
-queue()
-  .defer(d3.json, "data/mapcontext_data.topojson")
-  .defer(d3.json, "data/subway_routes.topojson")
-  .defer(d3.json, "data/gtfs_data.json")
-  .await(setupBaseMap);
+// queue()
+//   .defer(d3.json, "data/mapcontext_data.topojson")
+//   .defer(d3.json, "data/subway_routes.topojson")
+//   .defer(d3.json, "data/gtfs_data.json")
+//   .await(setupBaseMap);
   
 function setupBaseMap(err, mapContext, subwayTopo, gtfsData) {
   var start_t = Date.now();
@@ -355,6 +355,25 @@ SubwaySimulator.prototype = {
     }, this);
   },
   
+  plotTrains: function(trainData, trainFeatureLayer) {
+    trainFeatureLayer.setGeoJSON({
+      type: "FeatureCollection",
+      features: trainData.map(function(d) {
+        return {
+          type: "Feature",
+          geometry: {
+            type: "Point",
+            coordinates: d.position.coordinates
+          },
+          properties: {
+            'marker-color': this.routesById[d.trip.route_id].route_color,
+            'marker-symbol': 'rail-metro'
+          }
+        };
+      }, this)
+    });
+  },
+  
   drawTrains: function(trainData, svg, projection, projector) {
     var sim = this;
     var trainGroup = svg.selectAll('.train').data(trainData);
@@ -437,12 +456,10 @@ SubwaySimulator.prototype = {
   }
 }
 
-function SimRunner(sim, svgOverlay, trainGroup, projection, projector) {
+function SimRunner(sim, map, trainFeatureLayer) {
   this.sim = sim;
-  this.svgOverlay = svgOverlay;
-  this.trainGroup = trainGroup;
-  this.projection = projection;
-  this.projector = projector;
+  this.map = map;
+  this.trainFeatureLayer = trainFeatureLayer;
 
   this.minutes = 4*60;
   this.lastUpdate = new Date();
@@ -469,18 +486,19 @@ SimRunner.prototype.updateTrainPositions = function() {
   var time = new Time(hour < 3 ? 24+hour : hour, now.getMinutes() + now.getSeconds()/60 + now.getMilliseconds()/60000);
   var trainData = this.sim.trainPositions(time, ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'][now.getDay()]);
   // console.log("train positions!", trainData);
-  sim.drawTrains(trainData, this.trainGroup, this.projection, this.projector);    
+  // sim.drawTrains(trainData, this.trainGroup, this.projection, this.projector);    
+  sim.plotTrains(trainData, this.trainFeatureLayer);
   // console.log("updated train positions in ", Date.now() - now, "ms");
 
-  var times = this.svgOverlay.selectAll('.time').data([now]);
-  times
-    .enter()
-    .append('text')
-    .classed('time', true)
-    .attr('x', 3)
-    .attr('y', 15);
-  times
-    .text(time);
+  // var times = this.svgOverlay.selectAll('.time').data([now]);
+  // times
+  //   .enter()
+  //   .append('text')
+  //   .classed('time', true)
+  //   .attr('x', 3)
+  //   .attr('y', 15);
+  // times
+  //   .text(time);
 }
 SimRunner.prototype.updateRealtime = function() {
   d3.json('/realtime', function (err, updates) {
@@ -490,41 +508,48 @@ SimRunner.prototype.updateRealtime = function() {
 }
 SimRunner.prototype.start = function() {
   this.lastUpdate = new Date();
-  this.updateInterval = setInterval(this.updateTrainPositions.bind(this), 50);
+  this.updateInterval = setInterval(this.updateTrainPositions.bind(this), 10);
   this.updateTrainPositions();
 }
 SimRunner.prototype.stop = function() {
   clearInterval(this.updateInterval);
 }
 
-function drawSubwayData(subwayData, apiData, svg, svgOverlay, projection, projector) {
+function drawSubwayData(subwayData, apiData, map) {
   console.log("topographical data", subwayData);
   console.log("gtfs data", apiData);
   console.log("stop_time sample", apiData.stop_times.slice(100, 200));
-  var routeFeatures = topojson.feature(subwayData, subwayData.objects.subway_routes).features;
-  var sim = window.sim = new SubwaySimulator(routeFeatures, apiData)
-  svg.selectAll(".line")
-    .data(routeFeatures)
-    .enter().append("path")
-      .attr("class", "line")
-      // .on("mouseover", function(d) {
-      //   console.log(d);
-      // })
-      .attr("d", projector);
-  svg.selectAll(".station")
-    .data(apiData.stops)
-    .enter().append("path")
-      .attr("class", "station")
-      .attr("d", function(d) {
-        return projector({type: "Point", coordinates: [Number(d.stop_lon), Number(d.stop_lat)]});
-      })
-      .on("click", function(d) {
-        if (sim.lastStationEtdData) {
-          alert(JSON.stringify(sim.lastStationEtdData.filter(function(station) {
-            return station.abbr == d.abbr;
-          })[0], false, 2));
-        }
-      });
+  var routeFeatures = topojson.feature(subwayData, subwayData.objects.subway_routes);
+  var sim = window.sim = new SubwaySimulator(routeFeatures.features, apiData)
+  
+  var trackFeatureLayer = L.mapbox.featureLayer(routeFeatures).addTo(map);
+  trackFeatureLayer.setStyle({
+    color: 'gray',
+    weight: 6
+  });
+  var trainFeatureLayer = L.mapbox.featureLayer().addTo(map);
+  // svg.selectAll(".line")
+  //   .data(routeFeatures)
+  //   .enter().append("path")
+  //     .attr("class", "line")
+  //     // .on("mouseover", function(d) {
+  //     //   console.log(d);
+  //     // })
+  //     .attr("d", projector);
+  // svg.selectAll(".station")
+  //   .data(apiData.stops)
+  //   .enter().append("path")
+  //     .attr("class", "station")
+  //     .attr("d", function(d) {
+  //       return projector({type: "Point", coordinates: [Number(d.stop_lon), Number(d.stop_lat)]});
+  //     })
+  //     .on("click", function(d) {
+  //       if (sim.lastStationEtdData) {
+  //         alert(JSON.stringify(sim.lastStationEtdData.filter(function(station) {
+  //           return station.abbr == d.abbr;
+  //         })[0], false, 2));
+  //       }
+  //     });
   // svg.selectAll(".stationLink")
   //   .data(Object.keys(sim.stationLinks['01']))
   //   .enter().append("path")
@@ -533,11 +558,19 @@ function drawSubwayData(subwayData, apiData, svg, svgOverlay, projection, projec
   //       // console.log("link", d, "yields", sim.stationLinks['01'][d]);
   //       return projector({ type: "LineString", coordinates: sim.stationLinks['01'][d] });
   //     });
-  var trainGroup = svg.append("g");
+  // var trainGroup = svg.append("g");
 
-  var simRunner = window.simRunner = new SimRunner(sim, svgOverlay, trainGroup, projection, projector);
+  var simRunner = window.simRunner = new SimRunner(sim, map, trainFeatureLayer);
   simRunner.start();
 }
 
-function pause() {
-}
+$(function() {
+  L.mapbox.accessToken = 'pk.eyJ1IjoiemFtZmkiLCJhIjoiS3pqd2FzOCJ9.5pXWQcVx39wMbSxu8HL1Dw';
+  var map = L.mapbox.map('map', 'zamfi.j7fanp6l')
+      .setView(lonlat.reverse(), 10);
+  $.getJSON('data/subway_routes.topojson', function(subwayTopo) {
+    $.getJSON('data/gtfs_data.json', function(gtfsData) {
+      drawSubwayData(subwayTopo, gtfsData, map);
+    });
+  });
+});

@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
+<title>Human Flow</title>
 <meta charset="utf-8">
 <style>
 
@@ -80,16 +81,21 @@ path.stationLink:hover {
 }
 
 </style>
+<meta name='viewport' content='initial-scale=1,maximum-scale=1,user-scalable=no' />
+<script src='https://api.tiles.mapbox.com/mapbox.js/v2.1.0/mapbox.js'></script>
+<link href='https://api.tiles.mapbox.com/mapbox.js/v2.1.0/mapbox.css' rel='stylesheet' />
+<style>
+  body { margin:0; padding:0; }
+  #map { position:absolute; top:0; bottom:0; width:100%; }
+</style>
 </head>
 <body>
-<script src="/lib/d3.v3.min.js"></script>
+<script src="/lib/jquery-1.11.1.min.js"></script>
 <script src="/lib/topojson.v1.min.js"></script>
-<script src="/lib/queue.v1.min.js"></script>
 <script src="/js/time.js"></script>
 <script src="/js/topojson-utils.js"></script>
-<script src="/js/basemap.js"></script>
-<script src="/lib/svg-pan-zoom.min.js"></script>
 <script src="/js/subwaysim.js"></script>
+<div id='map'></div>
 <button onclick="javascript:window.simRunner.start()">Start</button><button onclick="javascript:window.simRunner.stop()">Stop</button>
 </body>
 </html>
