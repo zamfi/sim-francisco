@@ -1,8 +1,13 @@
 var osmapi = require('./osmapi');
 
-var queryArg = process.argv[2] || '"network"="NYC Subway"';
+var systemQueries = {
+  BART: '"operator"="BART"',
+  MTA: '"network"="NYC Subway"'
+}
 
-osmapi.doApiGet('(relation['+queryArg+']);(._;>);out body;', function(err) {
+var queryArg = process.argv[2] || 'BART';
+
+osmapi.doApiGet('(relation['+systemQueries[queryArg]+']);(._;>);out body;', function(err) {
   if (! err) {
     osmapi.status("...done.\n");
   } else {

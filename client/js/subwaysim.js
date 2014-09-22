@@ -1,13 +1,36 @@
-var width = 1024,
-    height = 1024;
+var width = 1000,
+    height = 700;
 
-var lonlat = [-122.25, 37.75];
-var scale = 75000;
+var agency = "BART";
+var debug = true;
 
+var agencyInfo = {
+  MTA: {
+    lonlat: [-73.9, 40.75],
+    scale: 130000,
+    agency_id: "MTA NYCT"
+  },
+  BART: {
+    lonlat: [-122.25, 37.79],
+    scale: 65000,
+    agency_id: "BART"
+  }
+}
+
+var lonlat = agencyInfo[agency].lonlat;
+var scale = agencyInfo[agency].scale;
+
+// var svgBasemap = d3.select("body").append("svg")
+//     .attr("id", "basemap")
+//     .attr("width", width)
+//     .attr("height", height).append("g").attr("class", "viewport");
+//
 var svg = d3.select("body").append("svg")
     .attr("id", "map")
     .attr("width", width)
-    .attr("height", height).append("g").attr("class", "viewport");
+    .attr("height", height);
+var svgBase = svg.append("g").attr("class", "viewport");
+var svgOverlay = svg.append("g");
 
 var projection = d3.geo.mercator()
   .center(lonlat).scale(scale).translate([width/2, height/2])
@@ -23,16 +46,18 @@ queue()
 function setupBaseMap(err, mapContext, subwayTopo, gtfsData) {
   var start_t = Date.now();
   console.log("mapcontext", mapContext);
-  drawBasemap(mapContext, mapContext.objects.mapcontext_data, svg, projector);
+  drawBasemap(mapContext, mapContext.objects.mapcontext_data, svgBase, projector);
   var baseMap_t = Date.now();
-  // console.log("subwaydata", subwayData);
-  drawSubwayData(subwayTopo, gtfsData, svg, projection, projector);
+  // console.log("subwaydata", subwayTopo);
+  drawSubwayData(subwayTopo, gtfsData, svgBase, svgOverlay, projection, projector);
   var subway_t = Date.now();
   console.log("mapdraw time", baseMap_t - start_t, "subwaytime", subway_t - subway_t);
-  // svgPanZoom('#map', {
-  //   minZoom: 1,
-  //   maxZoom: 40
-  // });
+  svgPanZoom('#map', {
+    minZoom: 1,
+    maxZoom: 40,
+    fit: false,
+    center: false
+  });
 }
 
 var routeNameMap = {
@@ -40,11 +65,17 @@ var routeNameMap = {
 };
 
 var colorMap = {
-  'yellow': 'ffff33',
-  'orange': 'ff9933',
-  'green': '339933',
-  'red': 'ff0000',
-  'blue': '0099cc'
+  'ffff33': 'yellow',
+  'ff9933': 'orange',
+  '339933': 'green',
+  'ff0000': 'red',
+  'ee352e': 'red',
+  '0099cc': 'blue'
+  // 'yellow': 'ffff33',
+  // 'orange': 'ff9933',
+  // 'green': '339933',
+  // 'red': 'ff0000',
+  // 'blue': '0099cc'
 };
 
 // distance in miles
@@ -88,7 +119,7 @@ function SubwaySimulator(routeFeatures, apiData) {
   this.stopsByAbbreviation = arrayToObject(apiData.stops, 'stop_id');
   
   this.routes = apiData.routes.filter(function (route) {
-    return route.agency_id == 'BART';
+    return route.agency_id == agencyInfo[agency].agency_id;
   });
   
   this.trips = apiData.trips;
@@ -99,7 +130,7 @@ function SubwaySimulator(routeFeatures, apiData) {
   apiData.stop_times.forEach(function (stop_time) {
     var trip = this.tripsById[stop_time.trip_id];
     if (! trip) { 
-      console.log("stop_time entry refers to phantom trip id", stop_time); 
+      // console.log("stop_time entry refers to phantom trip id", stop_time);
       return; 
     }
     if (! trip.stops) {
@@ -115,7 +146,7 @@ function SubwaySimulator(routeFeatures, apiData) {
   var connections = this.stationLinks = {};
   this.trips.forEach(function(trip) {
     if (! trip.stops) {
-      console.log("trip without any stops", trip);
+      // console.log("trip without any stops", trip);
       return;
     }
     trip.stops.sort(function (a, b) {
@@ -131,16 +162,19 @@ function SubwaySimulator(routeFeatures, apiData) {
   }, this);
   
   this.routeFeatures = routeFeatures;
+  // console.log("routeFeatures", routeFeatures, routeFeatures.some(function(routeFeature) {
+  //   typeof(routeFeature.geometry.coordinates[0]) != 'number' || typeof(routeFeature.geometry.coordinates[0]) != 'number';
+  // }));
   this.routes.forEach(function (route) {
     var neededConnections = connections[route.route_id];
     for (var k in neededConnections) {
       var endpoints = connectionDecode(k);
       var endpointLonlats = {
-        from: [this.stopsByAbbreviation[endpoints.from].stop_lon, this.stopsByAbbreviation[endpoints.from].stop_lat],
-        to: [this.stopsByAbbreviation[endpoints.to].stop_lon, this.stopsByAbbreviation[endpoints.to].stop_lat]
+        from: [Number(this.stopsByAbbreviation[endpoints.from].stop_lon), Number(this.stopsByAbbreviation[endpoints.from].stop_lat)],
+        to: [Number(this.stopsByAbbreviation[endpoints.to].stop_lon), Number(this.stopsByAbbreviation[endpoints.to].stop_lat)]
       };
       var possibleRoutes = routeFeatures.filter(function (feature) {
-        return colorMap[feature.properties.colour] == route.route_color; // BART-specific here, sadly.
+        return (feature.properties.colour || feature.properties.color) == colorMap[route.route_color.toLowerCase()]; 
       });
       var endpointsIndexPerRoute = possibleRoutes.map(function (features) {
         return {
@@ -167,17 +201,25 @@ function SubwaySimulator(routeFeatures, apiData) {
           return prev;
         }
       }, 0);
+      if (possibleRoutes.length == 0 || ! possibleRoutes[chosenRoute]) {
+        console.log("couldn't find corresponding route for route", route, chosenRoute, possibleRoutes);
+      }
       var path = possibleRoutes[chosenRoute].geometry.coordinates.slice(
         Math.min(endpointsIndexPerRoute[chosenRoute].from, endpointsIndexPerRoute[chosenRoute].to),
         Math.max(endpointsIndexPerRoute[chosenRoute].from, endpointsIndexPerRoute[chosenRoute].to)+1); // inclusive
       if (endpointsIndexPerRoute[chosenRoute].from > endpointsIndexPerRoute[chosenRoute].to) {
         path.reverse();
       }
+      if (path.length < 1) {
+        console.log("couldn't find a path for", k);
+      }
+      path.unshift(endpointLonlats.from);
+      path.push(endpointLonlats.to);
       neededConnections[k] = path;
       // console.log("found connection for endpoints", endpoints.from, endpoints.to, path,
       //             "possible routes was", possibleRoutes, "preferred endpointindex was", endpointsIndexPerRoute,
       //             "chosen route was", chosenRoute);
-      console.log("connection", endpoints.from, endpoints.to, chosenRoute, path.length);
+      // console.log("connection", endpoints.from, endpoints.to, chosenRoute, path.length);
     }
   }, this);
   this.routesById = arrayToObject(this.routes, 'route_id');
@@ -236,12 +278,22 @@ SubwaySimulator.prototype = {
   
   totalDistance: function(coordinates) {
     var total = 0;
+    if (! coordinates) {
+      return Number.MIN_VALUE;
+    }
     for (var i = 1; i < coordinates.length; ++i) {
       total += lonlatDistance(coordinates[i-1], coordinates[i]);
     }
     return total;
   },
   interpolatePathDistance: function(coordinates, distance) {
+    if (coordinates.some(function(coordinatePair) {
+      return typeof(coordinatePair[0]) != 'number' || typeof(coordinatePair[1]) != 'number';
+    })) {
+      // console.log("interpolatePathDistance with non-number coordinates:", coordinates.map(function(coordinate) {
+      //   return coordinate[0] + "("+typeof(coordinate[0])+")"+", "+coordinate[1]+"("+typeof(coordinate[1])+")";
+      // }).join(", "), distance);
+    }
     var distanceSoFar = 0;
     for (var i = 0; i < coordinates.length-1; ++i) {
       var stepDistance = lonlatDistance(coordinates[i], coordinates[i+1]);
@@ -278,19 +330,21 @@ SubwaySimulator.prototype = {
       for (var i = 0; i < trip.stops.length; ++i) {
         if (this.stopDepartureTime(trip, trip.stops[i]) <= timeObject) {
           lastStopIndex = i;
+          // break;
         }
-        if (this.stopArrivalTime(trip, trip.stops[i]) >= timeObject && nextStopIndex === undefined) {
-          nextStopIndex = i;
-        }
+        // if (this.stopArrivalTime(trip, trip.stops[i]) >= timeObject && nextStopIndex === undefined) {
+        //   nextStopIndex = i;
+        // }
       }
-      if (lastStopIndex == nextStopIndex) {
-        nextStopIndex++;
-      }
+      nextStopIndex = Math.min(lastStopIndex+1, trip.stops.length-1);
+      // if (lastStopIndex == nextStopIndex) {
+      //   nextStopIndex++;
+      // }
       var out = {
         between: [trip.stops[lastStopIndex].stop_id, trip.stops[nextStopIndex].stop_id],
         between_index: [lastStopIndex, nextStopIndex],
         trip: trip,
-        completion: (timeObject - this.stopDepartureTime(trip, trip.stops[lastStopIndex])) / (this.stopArrivalTime(trip, trip.stops[nextStopIndex]) - this.stopDepartureTime(trip, trip.stops[lastStopIndex]))
+        completion: (timeObject - this.stopDepartureTime(trip, trip.stops[lastStopIndex])) / ((this.stopArrivalTime(trip, trip.stops[nextStopIndex]) - this.stopDepartureTime(trip, trip.stops[lastStopIndex])) || 1)
       };
       var linkKey = connectionKey(out.between[0], out.between[1]);
       // console.log("getting link", this.stationLinks[trip.route_id], trip.stops, linkKey, this.stationLinks[trip.route_id][connectionKey(out.between[0], out.between[1])]);
@@ -319,13 +373,17 @@ SubwaySimulator.prototype = {
       });
     trainEntry.append("circle")
       .attr("class", "traincircle")
-      .attr("r", 5);
+      .attr("r", 7);
     trainGroup.select('.traincircle')
       .attr("fill", function(d) { 
         return '#'+sim.routesById[d.trip.route_id].route_color;
       })
       .attr("cx", function(d) {
-        return projection(d.position.coordinates)[0];
+        var cx = projection(d.position.coordinates)[0]
+        if (isNaN(cx)) {
+          console.log("failed to find X coordinate for trip", d);
+        }
+        return cx;
       })
       .attr("cy", function(d) {
         return projection(d.position.coordinates)[1];
@@ -370,88 +428,76 @@ SubwaySimulator.prototype = {
             arrival: Time.fromMinutesSinceStart((arrivalDelay || departureDelay)/60),
             at: tripStop
           };
-          console.log("Found delayed train!", tripId, tripStop);
+          // console.log("Found delayed train!", tripId, tripStop);
         } else {
           delete tripStop.delay;
         }
       }, this);
     }, this);
   }
-  // trainPositions: function(stationEtdData) {
-  //   var trainData = [];
-  //   var sim = this;
-  //   sim.lastStationEtdData = stationEtdData;
-  //   stationEtdData.forEach(function(station) {
-  //     station.etd.forEach(function(etd) {
-  //       etd.departures.filter(function(a) { return a.minutes <= 8; }).forEach(function(departure) {
-  //         var route = sim.chooseLikelyRoute(departure.color, etd.destination, station.abbr);
-  //         if (! route) { return; }
-  //         console.log("Got route", route.from, "->", route.to, "for", departure.color, "train going to", etd.destination, "via", station.abbr);
-  //         var previousStation = route.stations[Math.max(route.stations.indexOf(station.abbr)-1, 0)];
-  //         var coordinates = sim.routeCoordinates(route, station.abbr, previousStation);
-  //         if (! coordinates) { return; }
-  //         console.log("got coordinates", coordinates);
-  //         var position = sim.interpolatePathDistance(coordinates, departure.minutes/60 * 40 /*m/h*/);
-  //         console.log("got position", position);
-  //         trainData.push({color: departure.color, position: position, destination: etd.destination, arrivingAt: station.abbr, inMinutes: departure.minutes, route: route});
-  //       });
-  //     });
-  //   });
-  //   return trainData;
-  // },
-  //
-  // drawTrains: function(trainData, svg, projection, projector) {
-  //   var trainGroup = svg.selectAll('.train').data(trainData)
-  //     .enter().append("g")
-  //     .attr("class", "train")
-  //     .on("click", function(d) {
-  //       alert("train bound for "+d.destination+" arrives at "+d.arrivingAt+" in "+d.inMinutes+" minutes.\n\nVia route "+d.route.from+"->"+d.route.to+".");
-  //     });
-  //   trainGroup.append("circle")
-  //     .attr("class", "traincircle")
-  //     .attr("fill", function(d) { return d.color; })
-  //     .attr("r", 5)
-  //     .attr("cx", function(d) {
-  //       return projection(d.position.coordinates)[0];
-  //     })
-  //     .attr("cy", function(d) {
-  //       return projection(d.position.coordinates)[1];
-  //     });
-  //   trainGroup.append("path")
-  //     .attr("class", "trainnose")
-  //     .attr("d", function(d) {
-  //       if (! d.position.nextCoordinates && ! d.position.lastCoordinates) {
-  //         return "";
-  //       }
-  //       var start = projection(d.position.coordinates);
-  //       var end = projection(d.position.nextCoordinates || d.position.lastCoordinates);
-  //       var len = Math.sqrt((start[0]-end[0])*(start[0]-end[0]) + (start[1]-end[1])*(start[1]-end[1]));
-  //       end = [10 * (start[0]-end[0]) / len, 10 * (start[1]-end[1]) / len];
-  //       return ["M",start.join(" "),
-  //               "l",end.join(" ")].join(" ");
-  //     });
-  // },
-  //
-  // chooseLikelyRoute: function(color, destination, nextStop) {
-  //   for (var i = 0; i < this.routes.length; ++i) {
-  //     if (this.routes[i].color == color &&
-  //         (nextStop in this.routes[i].stationAbbrToIndex) &&
-  //         (destination in this.routes[i].stationAbbrToIndex) &&
-  //         (nextStop == destination || this.routes[i].stations.indexOf(destination) > this.routes[i].stations.indexOf(nextStop))) {
-  //       return this.routes[i];
-  //     }
-  //   }
-  //   return null;
-  // },
-  // routeCoordinates: function(route, from, to) {
-  //   var i = route.stationAbbrToIndex[from],
-  //       j = route.stationAbbrToIndex[to];
-  //   var coordinateList = route.feature.geometry.coordinates.slice(Math.min(i, j), Math.max(i, j)+1);
-  //   return i < j ? coordinateList : coordinateList.reverse();
-  // }
 }
 
-function drawSubwayData(subwayData, apiData, svg, projection, projector) {
+function SimRunner(sim, svgOverlay, trainGroup, projection, projector) {
+  this.sim = sim;
+  this.svgOverlay = svgOverlay;
+  this.trainGroup = trainGroup;
+  this.projection = projection;
+  this.projector = projector;
+
+  this.minutes = 4*60;
+  this.lastUpdate = new Date();
+  
+  this.realtime = false;
+  if (this.realtime) {
+    this.realtimeInterval = setInterval(this.updateRealtime.bind(this), 61000);
+    this.updateRealtime();
+  }
+}
+SimRunner.prototype.updateTrainPositions = function() {
+  var now = new Date();
+  
+  if (! this.realtime) {
+    this.minutes += (+now - this.lastUpdate) / (1000); // 1 minute per second;
+    now.setHours(this.minutes / 60);
+    now.setMinutes(Math.floor(this.minutes % 60));
+    now.setSeconds((this.minutes % 1) * 60);
+    // console.log("minutes", minutes, now);
+    this.lastUpdate = new Date();
+  }
+  
+  var hour = now.getHours();
+  var time = new Time(hour < 3 ? 24+hour : hour, now.getMinutes() + now.getSeconds()/60 + now.getMilliseconds()/60000);
+  var trainData = this.sim.trainPositions(time, ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'][now.getDay()]);
+  // console.log("train positions!", trainData);
+  sim.drawTrains(trainData, this.trainGroup, this.projection, this.projector);    
+  // console.log("updated train positions in ", Date.now() - now, "ms");
+
+  var times = this.svgOverlay.selectAll('.time').data([now]);
+  times
+    .enter()
+    .append('text')
+    .classed('time', true)
+    .attr('x', 3)
+    .attr('y', 15);
+  times
+    .text(time);
+}
+SimRunner.prototype.updateRealtime = function() {
+  d3.json('/realtime', function (err, updates) {
+    console.log("got realtime data!", updates);
+    this.sim.applyRealtimeData(updates);
+  });
+}
+SimRunner.prototype.start = function() {
+  this.lastUpdate = new Date();
+  this.updateInterval = setInterval(this.updateTrainPositions.bind(this), 50);
+  this.updateTrainPositions();
+}
+SimRunner.prototype.stop = function() {
+  clearInterval(this.updateInterval);
+}
+
+function drawSubwayData(subwayData, apiData, svg, svgOverlay, projection, projector) {
   console.log("topographical data", subwayData);
   console.log("gtfs data", apiData);
   console.log("stop_time sample", apiData.stop_times.slice(100, 200));
@@ -489,31 +535,9 @@ function drawSubwayData(subwayData, apiData, svg, projection, projector) {
   //     });
   var trainGroup = svg.append("g");
 
-  function updateTrainPositions() {
-    var now = new Date();
-    var hour = now.getHours();
-    var trainData = sim.trainPositions(new Time(hour < 3 ? 24+hour : hour, now.getMinutes() + now.getSeconds()/60 + now.getMilliseconds()/60000), ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'][now.getDay()]);
-    // console.log("train positions!", trainData);
-    sim.drawTrains(trainData, trainGroup, projection, projector);    
-    // console.log("updated train positions in ", Date.now() - now, "ms");
-  }
-  setInterval(updateTrainPositions, 50);
-  updateTrainPositions();
-  
-  function updateRealtime() {
-    d3.json('/realtime', function (err, updates) {
-      console.log("got realtime data!", updates);
-      sim.applyRealtimeData(updates);
-    });
-  }
-  setInterval(updateRealtime, 60000);
-  updateRealtime();
-  
-  // d3.json('/bart', function(err, stationEtdData) {
-  //   console.log("got bart data", stationEtdData);
-  //   var trainData = sim.trainPositions(stationEtdData.stations);
-  //   console.log("assumed train positions", trainData);
-  //   sim.drawTrains(trainData, trainGroup, projection, projector);
-  // });
+  var simRunner = window.simRunner = new SimRunner(sim, svgOverlay, trainGroup, projection, projector);
+  simRunner.start();
 }
 
+function pause() {
+}

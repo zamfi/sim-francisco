@@ -42,7 +42,7 @@ Time.prototype = {
     return this.minutesSinceStart();
   },
   toString: function() {
-    return ("0"+this.hour).slice(-2)+":"+("0"+Math.round(this.minute)).slice(-2)+":"+("0"+Math.round((this.minute%1)*60)).slice(-2);
+    return ("0"+this.hour).slice(-2)+":"+("0"+Math.floor(this.minute)).slice(-2)+":"+("0"+Math.floor((this.minute%1)*60)).slice(-2);
   }
 };
 

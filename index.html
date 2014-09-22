@@ -7,10 +7,9 @@
 /* CSS goes here. */
 
 path.coast {
-  fill: white;
-}
-path.coast-inverted {
+/*  stroke: black;*/
   fill: #def;
+/*  fill: none;*/
 }
 path.highway {
   stroke: #ddd;
@@ -42,13 +41,13 @@ path.park {
 }
 
 path.line {
-  stroke: #f00;
+  stroke: #aaa;
   stroke-width: 3px;
   fill: none;
 }
 
 path.station {
-  stroke: #f00;
+  stroke: #aaa;
   stroke-width: 3px;
   fill: white;
 }
@@ -89,7 +88,8 @@ path.stationLink:hover {
 <script src="/js/time.js"></script>
 <script src="/js/topojson-utils.js"></script>
 <script src="/js/basemap.js"></script>
-<!-- <script src="/lib/svg-pan-zoom.min.js"></script> -->
+<script src="/lib/svg-pan-zoom.min.js"></script>
 <script src="/js/subwaysim.js"></script>
+<button onclick="javascript:window.simRunner.start()">Start</button><button onclick="javascript:window.simRunner.stop()">Stop</button>
 </body>
 </html>

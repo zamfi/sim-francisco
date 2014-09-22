@@ -6,7 +6,81 @@ function drawBasemap(world, object, svg, projector) {
   timing.feature1 = Date.now();
   // console.log("feature collection is", featureCollection);
 
-  function mergedCoastlines() {
+  function closeUnclosedCoastlineFeatures(featureCollection) {
+    featureCollection.features.filter(NOT(isClosed)).forEach(function(feature) {
+      console.log("unclosed coastline:", feature);
+      var lineCoordinates = feature.geometry.coordinates[0];
+      var bounds = lineCoordinates.reduce(function(prev, cur) {
+        if (cur[0] < prev.left) {
+          prev.left = cur[0];
+        }
+        if (cur[0] > prev.right) {
+          prev.right = cur[0];
+        }
+        if (cur[1] < prev.bottom) {
+          prev.bottom = cur[1];
+        }
+        if (cur[1] > prev.top) {
+          prev.top = cur[1];
+        }
+        return prev;
+      }, {left: Number.MAX_VALUE, right: -Number.MAX_VALUE, bottom: Number.MAX_VALUE, top: -Number.MAX_VALUE});
+      console.log("bounded by", bounds);
+      var startPoint = lineCoordinates[0];
+      var endPoint = lineCoordinates[lineCoordinates.length-1];
+      var boundOrder = ['bottom', 'left', 'top', 'right'];
+      function closestBound(lonlat) {
+        var distances = boundOrder.map(function(boundKey) {
+          switch (boundKey) {
+            case 'left':
+            case 'right':
+              return Math.abs(lonlat[0] - bounds[boundKey]);
+            case 'bottom':
+            case 'top':
+              return Math.abs(lonlat[1] - bounds[boundKey]);
+          }
+        });
+        var shortestIndex = distances.reduce(function(shortestIndex, distance, index) {
+          return distance < distances[shortestIndex] ? index : shortestIndex;
+        }, 0);
+        console.log("distances are", distances, "shortest at", shortestIndex);
+        return boundOrder[shortestIndex];
+      }
+      var endPointClosestBound = closestBound(endPoint);
+      var startPointClosestBound = closestBound(startPoint);
+      var boundIndex = boundOrder.indexOf(endPointClosestBound);
+      console.log("closest bounds are", endPointClosestBound, "to", startPointClosestBound, "; starting at index", boundIndex);
+      var boundTrack = [];
+      while (boundOrder[boundIndex] != startPointClosestBound) {
+        boundTrack.push(boundOrder[boundIndex]);
+        boundIndex = (boundIndex + 1) % boundOrder.length;
+        if (boundTrack.length > boundOrder.length * 2) {
+          // there was an error here.
+          break;
+        }
+      }
+      boundTrack.push(boundOrder[boundIndex]);
+
+      console.log("will track bounds", boundTrack);
+      function closestPointOnBound(fromPoint, bound) {
+        switch(bound) {
+          case 'left':
+          case 'right':
+            return [bounds[bound], fromPoint[1]];
+          case 'bottom':
+          case 'top':
+            return [fromPoint[0], bounds[bound]];
+        }
+      }
+      boundTrack.forEach(function(boundName) {
+        lineCoordinates.push(closestPointOnBound(lineCoordinates[lineCoordinates.length-1], boundName));
+      });
+      lineCoordinates.push(lineCoordinates[0]);
+    });
+    return featureCollection;
+  }
+
+  function generateGeometryPolygons() {
     var coastlineSegments = object.geometries.filter(AND(isCoastline, isLineString));
     // create canonical point objects for use in object equivalence
     var canonicalPoints = {}
@@ -84,38 +158,31 @@ function drawBasemap(world, object, svg, projector) {
               mergedFrom: segmentIndices.map(function(segIndex) {
                 return coastlineSegments[segIndex].id
               }).join(","),
-              inverted: !isClosed
+              isClosed: isClosed
             },
             id: "compound-segment/"+index,
-            arcs: isClosed ? 
-              [arcs.map(function(arc) {
-                return ~arc;
-              }).reverse()] : 
-              [arcs]
+            arcs: [arcs]
           };
-        }).sort(function(a, b) {
-          return (b.properties.inverted ? 1 : 0) - (a.properties.inverted ? 1 : 0);
         })
     };
   }
 
-  var coastlineGeometryCollection = mergedCoastlines();
+  var coastlineGeometryCollection = generateGeometryPolygons();
   timing.merged = Date.now();
   console.log("geometry collection", world, coastlineGeometryCollection);
   var coastlineFeatureCollection = topojson.feature(world, coastlineGeometryCollection);
   timing.coastlineFeature = Date.now();
 
   var collections = [
-    AND(isCoastline, NOT(isLineString)), isPark, isWater, isRiver, isMinorRoad, isMajorRoad, isHighway
+    isPark, AND(isCoastline, NOT(isLineString)), isWater, isRiver, isMinorRoad, isMajorRoad, isHighway
   ].map(function(featureFilter) {
     return {
       type: "FeatureCollection",
       features: featureCollection.features.filter(featureFilter)
     };
   });
-  collections.unshift({type: "FeatureCollection", features: coastlineFeatureCollection.features.filter(NOT(isInverted)) });
-  collections.unshift({type: "FeatureCollection", features: coastlineFeatureCollection.features.filter(isInverted) });
-  var classNames = ["coast-inverted", "coast", "coast", "park", "water", "river", "minor-road", "major-road", "highway"];
+  collections.splice(1, 0, closeUnclosedCoastlineFeatures(coastlineFeatureCollection));
+  var classNames = ["park", "coast", "coast", "water", "river", "minor-road", "major-road", "highway"];
 
   timing.svgStart = Date.now();
 

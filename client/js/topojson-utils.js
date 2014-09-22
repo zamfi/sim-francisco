@@ -31,7 +31,7 @@ var isWater = OR(featureFilter("natural", "water"), featureFilter("waterway", "r
 var isRiver = featureFilter("waterway", "river");
 var isPark = OR(featureFilter("leisure", "park"), featureFilter("natural", "wood"), featureFilter("landuse", "recreation_ground"), featureFilter("boundary", "national_park"));
 
-var isInverted = featureFilter("inverted", true);
+var isClosed = featureFilter("isClosed", true);
 var isLineString = function(feature) {
   return (feature.geometry ? feature.geometry.type : feature.type) == "LineString";
 }

@@ -4,7 +4,8 @@ var fs = require('fs');
 var AdmZip = require('adm-zip');
 
 var TRANSIT_FEEDS = {
-  BART: 'http://www.bart.gov/dev/schedules/google_transit.zip'
+  BART: 'http://www.bart.gov/dev/schedules/google_transit.zip',
+  MTA: 'http://web.mta.info/developers/data/nyct/subway/google_transit.zip'
 };
 
 function pullGtfsZipfile(network) {
