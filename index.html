@@ -53,31 +53,16 @@ path.station {
   fill: white;
 }
 
-circle.traincircle {
-  stroke-width: 1px;
-  stroke: black;
-}
-path.trainnose {
-/*  stroke-width: 1px;*/
-  stroke: black;
-}
-
-path.unknown {
-  stroke: #aaa;
-  stroke-width: 2px;
-  fill: rgba(171, 210, 239, 0.5);
-}
-svg {
-  border: 1px solid #ccc;
-/*  background: #abcdef;*/
-}
-
 path.stationLink {
   stroke: blue;
   fill: none;
 }
 path.stationLink:hover {
   stroke: orange;
+}
+
+.rail-car path {
+  fill: white;
 }
 
 </style>
@@ -96,6 +81,10 @@ path.stationLink:hover {
 <script src="/js/topojson-utils.js"></script>
 <script src="/js/subwaysim.js"></script>
 <div id='map'></div>
-<button onclick="javascript:window.simRunner.start()">Start</button><button onclick="javascript:window.simRunner.stop()">Stop</button>
+<div id='legend' style="display: none;">
+  <h5>BART Train Positions</h5>
+  <input id="realtime" type="checkbox" /> Simulate today's full train schedule<br>
+  <button id="pausebutton" style="display: none;">Pause</button>
+</div>
 </body>
 </html>

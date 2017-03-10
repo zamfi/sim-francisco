@@ -3,6 +3,9 @@ var request = require('request');
 var xml2js = require('xml2js');
 var Q = require('q');
 
+var fs = require('fs');
+var svg2png = require('svg2png');
+
 // var bartApi = new (require('./bart-api').BartAPI)();
 var gtfs = require('./gtfs-realtime');
 
@@ -48,6 +51,30 @@ app.get('/realtime', function(req, res) {
     res.writeHeader(500, {'Content-Type': "application/json"});
     res.end(JSON.stringify({msg: "Failed to get realtime data", error: error}));
   });
+});
+
+var iconTemplate = {
+  train: fs.readFileSync('bart-lead-car.svg', {encoding: 'utf-8'})
+};
+
+app.get('/icons/:color/train.png', function(req, res) {
+  var color = req.param('color');
+  if (color == 'shadow') {
+    res.sendFile(__dirname+'/bart-lead-car-shadow.png', {maxAge: 1000*60*60*24*365});
+    return;
+  }
+  if (fs.existsSync('/tmp/train-'+color+'.png')) {
+    res.sendFile('/tmp/train-'+color+'.png', {maxAge: 1000*60*60*24*365});
+  } else {
+    fs.writeFileSync('/tmp/train-'+color+'.svg', iconTemplate.train.replace(/\{%MAIN_COLOR%\}/g, color));
+    svg2png('/tmp/train-'+color+'.svg', '/tmp/train-'+color+'.png', 1.0, function(err) {
+      if (! err) {
+        res.sendFile('/tmp/train-'+color+'.png', {maxAge: 1000*60*60*24*365});
+      } else {
+        res.sendStatus(500);
+      }
+    });    
+  }
 });
 
 app.use(express.static(__dirname))

@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0" y="0" width="100" height="50" viewBox="0, 0, 100, 50">
+  <g id="Layer_1">
+    <g>
+      <path d="M93,33 L80.25,11.25 L6,11.25 L6,38.5 L85.25,38.5 L93,33 z" fill="#{%MAIN_COLOR%}"/>
+      <path d="M93,33 L80.25,11.25 L6,11.25 L6,38.5 L85.25,38.5 L93,33 z" fill-opacity="0" stroke="#000000" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <path d="M85.496,27.982 L77.75,14.6 L77.75,27.982 L85.496,27.982 z" fill="#FFFFFF"/>
+      <path d="M85.496,27.982 L77.75,14.6 L77.75,27.982 L85.496,27.982 z" fill-opacity="0" stroke="#999999" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <path d="M72.419,27.982 L72.463,14.6 L59.409,14.6 L59.409,27.982 L72.419,27.982 z" fill="#FFFFFF"/>
+      <path d="M72.419,27.982 L72.463,14.6 L59.409,14.6 L59.409,27.982 L72.419,27.982 z" fill-opacity="0" stroke="#999999" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <path d="M56.419,27.982 L56.463,14.6 L43.409,14.6 L43.409,27.982 L56.419,27.982 z" fill="#FFFFFF"/>
+      <path d="M56.419,27.982 L56.463,14.6 L43.409,14.6 L43.409,27.982 L56.419,27.982 z" fill-opacity="0" stroke="#999999" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <path d="M37.965,35.196 L38,14.6 L27.652,14.6 L27.652,35.196 L37.965,35.196 z" fill="#FFFFFF"/>
+      <path d="M37.965,35.196 L38,14.6 L27.652,14.6 L27.652,35.196 L37.965,35.196 z" fill-opacity="0" stroke="#999999" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <path d="M22.419,27.982 L22.463,14.6 L9.409,14.6 L9.409,27.982 L22.419,27.982 z" fill="#FFFFFF"/>
+      <path d="M22.419,27.982 L22.463,14.6 L9.409,14.6 L9.409,27.982 L22.419,27.982 z" fill-opacity="0" stroke="#999999" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+  </g>
+</svg>
