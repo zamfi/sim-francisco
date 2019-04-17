@@ -58,7 +58,7 @@ var iconTemplate = {
 };
 
 app.get('/icons/:color/train.png', function(req, res) {
-  var color = req.param('color');
+  var color = req.params.color;
   if (color == 'shadow') {
     res.sendFile(__dirname+'/bart-lead-car-shadow.png', {maxAge: 1000*60*60*24*365});
     return;
@@ -67,13 +67,14 @@ app.get('/icons/:color/train.png', function(req, res) {
     res.sendFile('/tmp/train-'+color+'.png', {maxAge: 1000*60*60*24*365});
   } else {
     fs.writeFileSync('/tmp/train-'+color+'.svg', iconTemplate.train.replace(/\{%MAIN_COLOR%\}/g, color));
-    svg2png('/tmp/train-'+color+'.svg', '/tmp/train-'+color+'.png', 1.0, function(err) {
-      if (! err) {
-        res.sendFile('/tmp/train-'+color+'.png', {maxAge: 1000*60*60*24*365});
-      } else {
-        res.sendStatus(500);
-      }
-    });    
+    var svgData = fs.readFileSync('/tmp/train-'+color+'.svg', 'utf8');
+    svg2png(svgData).then(buffer => {
+      fs.writeFileSync('/tmp/train-'+color+'.png', buffer);
+      res.sendFile('/tmp/train-'+color+'.png', {maxAge: 1000*60*60*24*365});
+    }).catch (e => {
+      console.log(err);
+      res.sendStatus(500);
+    });
   }
 });
 

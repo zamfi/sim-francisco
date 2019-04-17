@@ -134,7 +134,8 @@ var colorMap = {
   '339933': 'green',
   'ff0000': 'red',
   'ee352e': 'red',
-  '0099cc': 'blue'
+  '0099cc': 'blue',
+  'd5cfa3': 'silver'
   // 'yellow': 'ffff33',
   // 'orange': 'ff9933',
   // 'green': '339933',
@@ -238,7 +239,7 @@ function SubwaySimulator(routeFeatures, apiData) {
         to: [Number(this.stopsByAbbreviation[endpoints.to].stop_lon), Number(this.stopsByAbbreviation[endpoints.to].stop_lat)]
       };
       var possibleRoutes = routeFeatures.filter(function (feature) {
-        return (feature.properties.colour || feature.properties.color) == colorMap[route.route_color.toLowerCase()]; 
+        return feature.properties.ref.toLowerCase() == colorMap[route.route_color.toLowerCase()]; 
       });
       var endpointsIndexPerRoute = possibleRoutes.map(function (features) {
         return {
@@ -354,6 +355,8 @@ SubwaySimulator.prototype = {
     if (coordinates.some(function(coordinatePair) {
       return typeof(coordinatePair[0]) != 'number' || typeof(coordinatePair[1]) != 'number';
     })) {
+      console.log("wtf? coordinates has non-number pair");
+      debugger;
       // console.log("interpolatePathDistance with non-number coordinates:", coordinates.map(function(coordinate) {
       //   return coordinate[0] + "("+typeof(coordinate[0])+")"+", "+coordinate[1]+"("+typeof(coordinate[1])+")";
       // }).join(", "), distance);
@@ -439,13 +442,16 @@ SubwaySimulator.prototype = {
       };
       var linkKey = connectionKey(out.between[0], out.between[1]);
       // console.log("getting link", this.stationLinks[trip.route_id], trip.stops, linkKey, this.stationLinks[trip.route_id][connectionKey(out.between[0], out.between[1])]);
+      var stationLinks = this.stationLinks[trip.route_id][linkKey];
+      if (stationLinks instanceof Array &&
+          stationLinks[0] instanceof Array &&
+          stationLinks[0][0] instanceof Array) {
+        stationLinks = stationLinks[0];
+      }
       out.position = this.interpolatePathDistance(
-        this.stationLinks[trip.route_id][linkKey],
-        out.completion * this.totalDistance(this.stationLinks[trip.route_id][linkKey]));
+        stationLinks, out.completion * this.totalDistance(stationLinks));
       out.vector = this.interpolateNormalVector(
-        this.stationLinks[trip.route_id][linkKey],
-        out.completion * this.totalDistance(this.stationLinks[trip.route_id][linkKey]),
-        0.1);
+        stationLinks, out.completion * this.totalDistance(stationLinks), 0.1);
       return out;
     }, this);
   },
